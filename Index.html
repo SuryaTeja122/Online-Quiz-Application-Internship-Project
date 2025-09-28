@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Smart Quiz — Admin + OpenTrivia</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --rad1:#ff007a; --rad2:#6a00ff; --rad3:#00e5ff;
+    --card:#0f1018; --panel:#151622; --panel2:#1b1d2a; --text:#eef2ff; --muted:#99a0c2;
+    --accent:linear-gradient(90deg,var(--rad1),var(--rad2),var(--rad3));
+    --success:#00e676; --danger:#ff5252;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:'Poppins',system-ui,Arial,sans-serif;
+    background:linear-gradient(135deg,var(--rad1),var(--rad2),var(--rad3));
+    background-size:400% 400%; animation:move 18s linear infinite;
+    min-height:100vh; display:flex; align-items:center; justify-content:center; color:var(--text);
+  }
+  @keyframes move{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+  .app { width:100%; max-width:1100px; margin:18px; background:var(--card); border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.5); overflow:hidden; }
+  header{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06)); }
+  .brand{display:flex; gap:12px; align-items:center}
+  .logo{width:48px; height:48px; border-radius:10px; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; box-shadow:0 10px 30px rgba(0,0,0,0.45)}
+  .title{font-size:1.2rem; font-weight:700}
+  .user-area{display:flex; gap:8px; align-items:center}
+  .btn{padding:8px 12px; border-radius:8px; font-weight:600; cursor:pointer; border:0; transition:all .16s; background:rgba(255,255,255,0.03); color:var(--text)}
+  .btn:hover{ transform:translateY(-4px) scale(1.02); box-shadow:0 12px 28px rgba(0,0,0,0.50) }
+  .btn.primary{background:var(--accent); color:#fff}
+  .btn.ghost{background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--text)}
+  .main{display:grid; grid-template-columns:1fr 360px; gap:18px; padding:20px}
+  @media(max-width:1000px){ .main{grid-template-columns:1fr} .sidebar{order:-1} }
+  .panel{background:var(--panel); border-radius:12px; padding:16px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.02)}
+  h1.page-title{font-size:1.2rem; margin:0 0 12px; font-weight:700}
+  label.row-label{display:block; color:var(--muted); font-weight:700; margin:8px 0 6px; font-size:.95rem}
+  select.input, input.input, textarea.input { width:100%; padding:10px; border-radius:10px; border:0; background:#ffffff; color:#111; outline:none; font-size:.95rem; transition:box-shadow .15s }
+  select.input option { color:#111; background:#fff; }
+  select.input:focus, input.input:focus, textarea.input:focus{ box-shadow:0 8px 30px rgba(0,0,0,0.4); }
+  .small{font-size:.9rem; color:var(--muted)}
+  .row{display:flex; gap:10px; align-items:center}
+  .row.two > *{flex:1}
+  .actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap}
+  .actions .btn{flex:1}
+  .q-text{font-size:1.05rem; padding:12px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); color:var(--text) }
+  .choices{display:flex; flex-direction:column; gap:10px}
+  .choice{padding:12px; border-radius:10px; background:rgba(255,255,255,0.02); cursor:pointer; border:1px solid rgba(255,255,255,0.03); transition:all .12s; color:var(--text)}
+  .choice:hover{ transform:translateY(-6px); box-shadow:0 18px 40px rgba(0,0,0,0.6) }
+  .choice.correct{ background:rgba(0,230,118,0.12); border-color:rgba(0,230,118,0.35) }
+  .choice.wrong{ background:rgba(255,82,82,0.12); border-color:rgba(255,82,82,0.35) }
+  .timerbar{height:10px; background:rgba(255,255,255,0.03); border-radius:999px; overflow:hidden}
+  .timerfill{height:100%; background:linear-gradient(90deg,var(--rad1),var(--rad3)); width:100%; transition:width 1s linear}
+  .sidebar .stat{ display:flex; flex-direction:column; gap:6px; }
+  .big{ font-size:1.4rem; font-weight:700 }
+  .history-list{ max-height:340px; overflow:auto; padding-right:6px }
+  .history-item{ padding:10px; border-radius:8px; background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); margin-bottom:10px; border:1px solid rgba(255,255,255,0.01) }
+  .label{ color:var(--muted); font-size:.85rem }
+  .overlay-msg{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.85); padding:20px 28px; border-radius:12px; color:#fff; font-size:1.05rem; display:none; z-index:50 }
+  /* History modal body bg */
+  #historyModal .hist-body { background: linear-gradient(135deg,#f6f9ff,#e8f0ff); color:#111; padding:14px; border-radius:10px; }
+  /* Admin modal items */
+  .admin-list{ max-height:260px; overflow:auto; margin-top:8px; }
+  .admin-item{ padding:8px; background:rgba(255,255,255,0.03); margin-bottom:8px; display:flex; gap:8px; align-items:center; justify-content:space-between; border-radius:8px; }
+  footer{ padding:10px 18px; text-align:center; color:var(--muted); font-size:.85rem }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">Qz</div>
+        <div>
+          <div class="title">Smart Quiz Application</div>
+          <div class="small">Admin-built questions + Open Trivia DB fallback</div>
+        </div>
+      </div>
+
+      <div class="user-area" id="userArea">
+        <div id="welcomeGhost" style="display:flex; gap:8px; align-items:center">
+          <button class="btn" onclick="showTab('login')">Login</button>
+          <button class="btn" onclick="showTab('signup')">Sign Up</button>
+          <button class="btn" onclick="showTab('adminAuth')">Admin Login / Signup</button>
+        </div>
+        <div id="loggedInArea" style="display:none; gap:8px; align-items:center">
+          <div id="loggedUser" style="padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px"></div>
+          <button class="btn" onclick="openHistory()">History</button>
+          <button class="btn" id="adminPanelBtn" onclick="openAdminPanel()" style="display:none">Admin Panel</button>
+          <button class="btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="main">
+      <div>
+        <!-- LOGIN TAB -->
+        <div class="panel" id="tab-login">
+          <h1 class="page-title">🔑 Login</h1>
+          <label class="row-label">Username</label>
+          <input id="loginUsername" class="input" placeholder="username">
+          <label class="row-label">Password</label>
+          <input id="loginPassword" class="input" type="password" placeholder="password">
+          <div class="actions">
+            <button class="btn primary" onclick="userLogin()">Login</button>
+            <button class="btn ghost" onclick="showTab('signup')">Go to Signup</button>
+          </div>
+        </div>
+
+        <!-- SIGNUP TAB -->
+        <div class="panel" id="tab-signup" style="display:none">
+          <h1 class="page-title">📝 Sign Up</h1>
+          <label class="row-label">Username</label>
+          <input id="signupUsername" class="input" placeholder="username (no spaces)">
+          <label class="row-label">Password</label>
+          <input id="signupPassword" class="input" type="password" placeholder="password">
+          <label class="row-label">Confirm Password</label>
+          <input id="signupPassword2" class="input" type="password" placeholder="confirm password">
+          <div class="actions">
+            <button class="btn primary" onclick="userSignup()">Sign Up</button>
+            <button class="btn ghost" onclick="showTab('login')">Back to Login</button>
+          </div>
+        </div>
+
+        <!-- ADMIN AUTH TAB (signup/login) -->
+        <div class="panel" id="tab-adminAuth" style="display:none">
+          <h1 class="page-title">🔐 Admin — Signup / Login</h1>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+            <div>
+              <label class="row-label">Admin Signup</label>
+              <input id="adminSignupUser" class="input" placeholder="admin username">
+              <input id="adminSignupPass" class="input" type="password" placeholder="password">
+              <div class="actions"><button class="btn primary" onclick="adminSignup()">Create Admin</button></div>
+            </div>
+            <div>
+              <label class="row-label">Admin Login</label>
+              <input id="adminLoginUser" class="input" placeholder="admin username">
+              <input id="adminLoginPass" class="input" type="password" placeholder="password">
+              <div class="actions"><button class="btn primary" onclick="adminLogin()">Login as Admin</button></div>
+              <div class="small" style="margin-top:6px">Default fallback admin: <b>admin / admin123</b></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- SETUP PANEL -->
+        <div class="panel" id="setupPanel" style="display:none; margin-top:14px">
+          <h1 class="page-title">⚙️ Setup Quiz</h1>
+
+          <label class="row-label">🎓 Qualification:</label>
+          <select id="qualification" class="input" onchange="onQualificationChange()">
+            <option value="">-- Select qualification --</option>
+            <option value="School">1-10th Class</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Graduate">Graduate</option>
+          </select>
+
+          <label class="row-label">📘 Subject:</label>
+          <select id="subject" class="input" onchange="onSubjectChange()">
+            <option value="">-- Select subject --</option>
+          </select>
+
+          <div id="courseRow" style="display:none">
+            <label class="row-label">💻 Course (Graduate):</label>
+            <select id="course" class="input"></select>
+          </div>
+
+          <label class="row-label">🌐 Language:</label>
+          <select id="language" class="input">
+            <option value="English">English</option>
+            <option value="Hindi">Hindi</option>
+          </select>
+
+          <div class="row two" style="margin-top:8px">
+            <div>
+              <label class="row-label">⏳ Timer (seconds / question):</label>
+              <input id="qTime" type="number" class="input" min="5" value="15">
+            </div>
+            <div>
+              <label class="row-label">🔢 Number of Questions:</label>
+              <input id="qCount" type="number" class="input" min="0" placeholder="0 = infinite (continuous)">
+            </div>
+          </div>
+
+          <label class="row-label">🎯 Pass marks (%):</label>
+          <input id="passPercent" class="input" type="number" min="1" max="100" value="40">
+
+          <div class="helper small">Tip: leave Number of Questions empty or 0 for continuous (infinite) mode.</div>
+
+          <div class="actions" style="margin-top:12px">
+            <button class="btn primary" onclick="startQuiz()">Start Quiz</button>
+            <button class="btn ghost" onclick="openHistory()">Open History</button>
+          </div>
+        </div>
+
+        <!-- QUIZ PANEL -->
+        <div class="panel" id="quizPanel" style="display:none; margin-top:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h1 class="page-title">📝 Quiz</h1>
+            <div class="q-meta">
+              <div class="label">User: <b id="metaUser"></b></div>
+            </div>
+          </div>
+
+          <div class="q-meta" style="margin-top:6px">
+            <div class="label">Question <span id="qIndex">0</span> / <span id="qTotal">0</span></div>
+            <div class="label">Time left: <span id="timeLeft">0</span>s</div>
+          </div>
+
+          <div class="q-text" id="qText">Question text</div>
+
+          <div class="choices" id="choices"></div>
+
+          <div class="timerbar" style="margin-top:8px"><div id="timerFill" class="timerfill"></div></div>
+
+          <div class="actions" style="margin-top:12px">
+            <button class="btn ghost" onclick="skipQuestion()">Skip</button>
+            <button class="btn ghost" onclick="finishQuiz()">Finish</button>
+            <button class="btn primary" id="stopBtn" style="display:none" onclick="stopInfinite()">Stop Quiz</button>
+          </div>
+        </div>
+
+        <!-- END PANEL -->
+        <div class="panel" id="endPanel" style="display:none; text-align:center; margin-top:14px">
+          <h1 class="page-title">✅ Quiz Finished</h1>
+          <div class="small">Results</div>
+          <div style="margin-top:12px">
+            <div style="font-weight:700; font-size:1.1rem" id="finalScore">0 / 0</div>
+            <div style="margin-top:8px" id="finalDetails" class="small"></div>
+            <div style="margin-top:10px" id="passBadge" ></div>
+          </div>
+
+          <div class="actions" style="margin-top:16px">
+            <button class="btn primary" onclick="restartToSetup()">New Quiz</button>
+            <button class="btn ghost" onclick="openHistory()">View History</button>
+            <button class="btn ghost" onclick="logout()">Logout</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT SIDEBAR -->
+      <aside class="sidebar">
+        <div class="panel">
+          <div class="card-block">
+            <div class="label">Live Score</div>
+            <div class="big" id="liveScore">0</div>
+            <div class="small">Questions asked: <span id="asked">0</span></div>
+          </div>
+
+          <div class="card-block" style="margin-top:12px">
+            <div class="label">Progress</div>
+            <div class="progress" style="margin-top:8px"><i id="progressBar" style="width:0%"></i></div>
+          </div>
+
+          <div class="card-block" style="margin-top:12px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <div class="label">History (preview)</div>
+              <button class="btn ghost" onclick="openHistory()">Open</button>
+            </div>
+            <div class="history-list" id="historyPreview" style="margin-top:8px"></div>
+          </div>
+
+          <div style="margin-top:12px" class="card-block">
+            <div class="label">Quick</div>
+            <div class="actions" style="margin-top:8px">
+              <button class="btn ghost" onclick="showTab('login')">Login</button>
+              <button class="btn ghost" onclick="showTab('signup')">Sign Up</button>
+              <button class="btn ghost" onclick="showTab('adminAuth')">Admin</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <footer><div style="color:var(--muted)">Built with ❤️ — Data stored in browser (localStorage). Open Trivia DB used as fallback.</div></footer>
+  </div>
+
+  <div id="overlayMsg" class="overlay-msg"></div>
+
+<script>
+/* ---------------------------
+   Storage keys & initial state
+   --------------------------- */
+const STORAGE_USERS = 'smartquiz_users_v2';
+const STORAGE_ADMINS = 'smartquiz_admins_v1';
+const STORAGE_QBANK = 'smartquiz_qbank_v1';
+
+// default admin fallback (only used if no admins exist in storage)
+const DEFAULT_ADMIN = { username:'admin', password:'admin123' };
+
+// load or init
+let users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '{}');
+let admins = JSON.parse(localStorage.getItem(STORAGE_ADMINS) || '[]');
+if(!admins || admins.length === 0) { admins = [DEFAULT_ADMIN]; localStorage.setItem(STORAGE_ADMINS, JSON.stringify(admins)); }
+let qbank = JSON.parse(localStorage.getItem(STORAGE_QBANK) || '{}'); // structure: { Qualification: { Subject: [ {q, correct, incorrect[]} ] } }
+// admin additions write to qbank
+
+let currentUser = null; // string (username) or admin username
+let isAdminSession = false;
+
+/* UI helpers */
+function showOverlay(msg, ms=1500){ const el=document.getElementById('overlayMsg'); el.textContent = msg; el.style.display='block'; setTimeout(()=>el.style.display='none', ms); }
+function showTab(tab){
+  // tabs: login, signup, adminAuth
+  document.getElementById('tab-login').style.display = (tab==='login') ? 'block' : 'none';
+  document.getElementById('tab-signup').style.display = (tab==='signup') ? 'block' : 'none';
+  document.getElementById('tab-adminAuth').style.display = (tab==='adminAuth') ? 'block' : 'none';
+}
+function hideAllMainPanels(){
+  ['setupPanel','quizPanel','endPanel'].forEach(id=>document.getElementById(id).style.display='none');
+}
+
+/* ---------- AUTH: Users ---------- */
+function userSignup(){
+  const u = document.getElementById('signupUsername').value.trim();
+  const p = document.getElementById('signupPassword').value;
+  const p2 = document.getElementById('signupPassword2').value;
+  if(!u || !p){ showOverlay('Enter username & password'); return; }
+  if(p !== p2){ showOverlay('Passwords do not match'); return; }
+  if(users[u]){ showOverlay('User already exists'); return; }
+  users[u] = { password:p, history:[] };
+  localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+  showOverlay('Signup successful — please login'); showTab('login');
+}
+
+function userLogin(){
+  const u = document.getElementById('loginUsername').value.trim();
+  const p = document.getElementById('loginPassword').value;
+  if(!u || !p){ showOverlay('Enter username & password'); return; }
+  if(!users[u]){ showOverlay('User not found — sign up'); return; }
+  if(users[u].password !== p){ showOverlay('Wrong password'); return; }
+  currentUser = u; isAdminSession = false;
+  afterLogin();
+}
+
+/* ---------- AUTH: Admins ---------- */
+function adminSignup(){
+  const u = document.getElementById('adminSignupUser').value.trim();
+  const p = document.getElementById('adminSignupPass').value;
+  if(!u||!p){ showOverlay('Enter admin username & password'); return; }
+  if(admins.some(a=>a.username === u)){ showOverlay('Admin username exists'); return; }
+  admins.push({ username:u, password:p });
+  localStorage.setItem(STORAGE_ADMINS, JSON.stringify(admins));
+  showOverlay('Admin account created. Login below.');
+  document.getElementById('adminSignupUser').value=''; document.getElementById('adminSignupPass').value='';
+}
+
+function adminLogin(){
+  const u = document.getElementById('adminLoginUser').value.trim();
+  const p = document.getElementById('adminLoginPass').value;
+  if(!u||!p){ showOverlay('Enter admin credentials'); return; }
+  if(admins.some(a=>a.username===u && a.password===p)){
+    currentUser = u; isAdminSession = true;
+    afterLogin();
+    showOverlay('Admin logged in');
+    // show admin panel button
+    document.getElementById('adminPanelBtn').style.display = 'inline-block';
+  } else {
+    showOverlay('Invalid admin login id');
+  }
+}
+
+/* After any successful login */
+function afterLogin(){
+  document.getElementById('welcomeGhost').style.display='none';
+  document.getElementById('loggedInArea').style.display='flex';
+  document.getElementById('loggedUser').textContent = currentUser + (isAdminSession? ' (admin)':'');
+  // show admin button only if admin session
+  document.getElementById('adminPanelBtn').style.display = isAdminSession ? 'inline-block' : 'none';
+  // show user setup panel for both user and admin (admin can also take quizzes)
+  document.getElementById('setupPanel').style.display='block';
+  // hide login tabs
+  showTab('');
+  refreshHistoryPreview();
+}
+
+/* logout */
+function logout(){
+  currentUser = null; isAdminSession=false;
+  document.getElementById('welcomeGhost').style.display='flex';
+  document.getElementById('loggedInArea').style.display='none';
+  hideAllMainPanels();
+  showOverlay('Logged out');
+  refreshHistoryPreview();
+}
+
+/* ---------- Setup dropdowns ---------- */
+const subjectMap = {
+  "School":["Maths","Science","Social","GK","English"],
+  "Intermediate":["Maths","Physics","Chemistry","Biology","Economics"],
+  "Graduate":["Computer Science","Engineering","Business","Law","Medicine"]
+};
+const courseMap = {
+  "Computer Science":["C","C++","Python","OS","COA","HTML"],
+  "Engineering":["Thermodynamics","Mechanics","Materials"],
+  "Business":["Finance","Marketing","HR"],
+  "Law":["Criminal","Civil","Corporate"],
+  "Medicine":["Anatomy","Physiology","Pharmacology"]
+};
+
+function onQualificationChange(){
+  const q = document.getElementById('qualification').value;
+  const subjEl = document.getElementById('subject');
+  subjEl.innerHTML = '<option value="">-- Select subject --</option>';
+  if(!q) return;
+  (subjectMap[q] || []).forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; subjEl.appendChild(o); });
+  document.getElementById('courseRow').style.display='none';
+}
+function onSubjectChange(){
+  const q = document.getElementById('qualification').value;
+  const s = document.getElementById('subject').value;
+  if(q==='Graduate' && courseMap[s]){
+    const cEl = document.getElementById('course');
+    cEl.innerHTML=''; courseMap[s].forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; cEl.appendChild(o); });
+    document.getElementById('courseRow').style.display='block';
+  } else document.getElementById('courseRow').style.display='none';
+}
+
+/* ---------- QBank utilities ---------- */
+function saveQBank(){ localStorage.setItem(STORAGE_QBANK, JSON.stringify(qbank)); }
+function addQuestionToBank(qual, subj, course, questionObj){
+  // questionObj: { q, correct, incorrect:[] }
+  if(!qbank[qual]) qbank[qual] = {};
+  if(qual === 'Graduate'){
+    if(!qbank[qual][subj]) qbank[qual][subj] = {};
+    if(!qbank[qual][subj][course]) qbank[qual][subj][course] = [];
+    qbank[qual][subj][course].push(questionObj);
+  } else {
+    if(!qbank[qual][subj]) qbank[qual][subj] = [];
+    qbank[qual][subj].push(questionObj);
+  }
+  saveQBank();
+}
+
+/* ---------- OpenTDB fallback ---------- */
+/* optional mapping for some subjects to OpenTDB categories (partial) */
+const openTDBCategoryBySubject = {
+  "Computer Science": 18, // Science: Computers
+  "Maths": 19, // Math - OpenTDB may not have precise mapping; this is approximate
+  "Science": 17 // Science & Nature (approx)
+};
+
+function decodeHTMLEntities(text){
+  const txt = document.createElement("textarea");
+  txt.innerHTML = text;
+  return txt.value;
+}
+
+async function fetchFromOpenTrivia(amount=10, subject=null){
+  // use mapping if available
+  let url = `https://opentdb.com/api.php?amount=${amount}&type=multiple`;
+  const cat = openTDBCategoryBySubject[subject];
+  if(cat) url = `https://opentdb.com/api.php?amount=${amount}&category=${cat}&type=multiple`;
+  try{
+    const res = await fetch(url);
+    if(!res.ok) return [];
+    const data = await res.json();
+    if(data.response_code !== 0) return [];
+    return data.results.map(it=>({
+      q: decodeHTMLEntities(it.question),
+      correct: decodeHTMLEntities(it.correct_answer),
+      incorrect: it.incorrect_answers.map(a=>decodeHTMLEntities(a))
+    }));
+  }catch(e){
+    console.warn('OpenTDB fetch failed', e);
+    return [];
+  }
+}
+
+/* ---------- Build pool (local qbank first) ---------- */
+function buildPoolForSelection(){
+  const qual = document.getElementById('qualification').value;
+  const subj = document.getElementById('subject').value;
+  const course = document.getElementById('course').value || null;
+  if(!qual || !subj){ showOverlay('Select qualification & subject'); return null; }
+  let pool = [];
+  if(qbank[qual]){
+    if(qual==='Graduate'){
+      if(course && qbank[qual][subj] && Array.isArray(qbank[qual][subj][course])) pool = qbank[qual][subj][course].slice();
+      else if(qbank[qual][subj]){ for(const c in qbank[qual][subj]) if(Array.isArray(qbank[qual][subj][c])) pool = pool.concat(qbank[qual][subj][c]); }
+    } else {
+      if(Array.isArray(qbank[qual][subj])) pool = qbank[qual][subj].slice();
+    }
+  }
+  return {qual, subj, course, pool};
+}
+
+/* ---------- Quiz runtime ---------- */
+let quizState = { pool:[], queue:[], pointer:0, infinite:false, numQ:0, timePerQ:15, timer:null, remaining:0, score:0, asked:0, lastQText:null, passPercent:40 };
+
+function shuffle(arr){ const a = arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function prepareQueue(pool, count, infinite){
+  if(!pool || pool.length===0) return [];
+  if(infinite) return shuffle(pool.slice());
+  const queue=[];
+  while(queue.length < count){
+    const block = shuffle(pool.slice());
+    if(queue.length>0 && queue[queue.length-1].q === block[0].q && block.length>1) [block[0],block[1]]=[block[1],block[0]];
+    queue.push(...block);
+  }
+  return queue.slice(0,count);
+}
+
+async function startQuiz(){
+  if(!currentUser){ showOverlay('Please login first'); showTab('login'); return; }
+  const built = buildPoolForSelection();
+  if(!built) return;
+  let {qual, subj, course, pool} = built;
+
+  // if no local pool for selection, fetch from OpenTDB
+  if(!pool || pool.length===0){
+    showOverlay('No admin questions — fetching fallback from Open Trivia DB...', 1700);
+    const fetched = await fetchFromOpenTrivia(12, subj);
+    if(!fetched || fetched.length===0){ showOverlay('No questions available'); return; }
+    pool = fetched;
+  }
+
+  const numRaw = document.getElementById('qCount').value;
+  let num = parseInt(numRaw);
+  const infinite = (!numRaw || isNaN(num) || num <= 0);
+  const timePerQ = parseInt(document.getElementById('qTime').value) || 15;
+  const passPercent = parseInt(document.getElementById('passPercent').value) || 40;
+
+  quizState.pool = pool;
+  quizState.infinite = infinite;
+  quizState.numQ = infinite ? Infinity : num;
+  quizState.timePerQ = timePerQ;
+  quizState.passPercent = passPercent;
+  quizState.score = 0; quizState.asked = 0; quizState.pointer = 0; quizState.lastQText=null;
+  quizState.queue = prepareQueue(pool, infinite ? pool.length : num, infinite);
+
+  // UI updates
+  document.getElementById('setupPanel').style.display='none';
+  document.getElementById('quizPanel').style.display='block';
+  document.getElementById('endPanel').style.display='none';
+  document.getElementById('metaUser').textContent = currentUser;
+  document.getElementById('stopBtn').style.display = infinite ? 'inline-block' : 'none';
+  document.getElementById('qTotal').textContent = infinite ? '∞' : quizState.numQ;
+  document.getElementById('qIndex').textContent = '0';
+  document.getElementById('liveScore').textContent = '0';
+  document.getElementById('asked').textContent = '0';
+  renderNextQuestion();
+}
+
+function getNextQuestion(){
+  if(!quizState.infinite && quizState.pointer >= quizState.queue.length) return null;
+  if(quizState.infinite && quizState.pointer >= quizState.queue.length){
+    const newBlock = shuffle(quizState.pool.slice());
+    if(quizState.lastQText && newBlock.length>1 && newBlock[0].q === quizState.lastQText) [newBlock[0],newBlock[1]]=[newBlock[1],newBlock[0]];
+    quizState.queue = newBlock; quizState.pointer = 0;
+  }
+  const item = quizState.queue[quizState.pointer]; quizState.pointer +=1;
+  return item;
+}
+
+function renderNextQuestion(){
+  const qObj = getNextQuestion();
+  if(!qObj){ finishQuiz(); return; }
+  quizState.currentQuestion = qObj;
+  quizState.lastQText = qObj.q;
+  document.getElementById('qIndex').textContent = quizState.asked + 1;
+  document.getElementById('qTotal').textContent = quizState.infinite ? '∞' : quizState.numQ;
+  document.getElementById('qText').textContent = qObj.q;
+  const choicesDiv = document.getElementById('choices'); choicesDiv.innerHTML='';
+  const choices = shuffle([qObj.correct, ...(qObj.incorrect || [])]);
+  choices.forEach(ch=>{
+    const d = document.createElement('div'); d.className='choice'; d.textContent = ch;
+    d.onclick = ()=> selectChoice(d, ch); choicesDiv.appendChild(d);
+  });
+  startTimerForQuestion();
+}
+
+function startTimerForQuestion(){
+  clearInterval(quizState.timer);
+  quizState.remaining = quizState.timePerQ;
+  document.getElementById('timeLeft').textContent = quizState.remaining;
+  const fill = document.getElementById('timerFill'); fill.style.width='100%';
+  quizState.timer = setInterval(()=>{
+    if(document.hidden) return;
+    quizState.remaining -=1;
+    document.getElementById('timeLeft').textContent = quizState.remaining;
+    const pct = Math.max(0,(quizState.remaining/quizState.timePerQ)*100);
+    fill.style.width = pct + '%';
+    if(quizState.remaining <= 0){ clearInterval(quizState.timer); handleTimeUp(); }
+  },1000);
+}
+
+function handleTimeUp(){
+  const correct = quizState.currentQuestion.correct;
+  Array.from(document.getElementById('choices').children).forEach(el=>{ if(el.textContent === correct) el.classList.add('correct'); el.onclick = null; });
+  quizState.asked +=1; updateLiveStats();
+  setTimeout(()=>{ if(!quizState.infinite && quizState.asked >= quizState.numQ) { finishQuiz(); return; } renderNextQuestion(); }, 1000);
+}
+
+function selectChoice(el, chosen){
+  if(!quizState.currentQuestion) return;
+  clearInterval(quizState.timer);
+  const correct = quizState.currentQuestion.correct;
+  Array.from(document.getElementById('choices').children).forEach(b=>{ b.onclick = null; if(b.textContent === correct) b.classList.add('correct'); });
+  if(chosen === correct){ quizState.score +=1; showOverlay('✔ Correct', 900); } else { el.classList.add('wrong'); showOverlay('✖ Wrong — correct: ' + correct, 1200); }
+  quizState.asked +=1; updateLiveStats();
+  setTimeout(()=>{ if(!quizState.infinite && quizState.asked >= quizState.numQ) { finishQuiz(); return; } renderNextQuestion(); }, 1000);
+}
+
+function skipQuestion(){ clearInterval(quizState.timer); handleTimeUp(); }
+
+function updateLiveStats(){
+  document.getElementById('liveScore').textContent = quizState.score;
+  document.getElementById('asked').textContent = quizState.asked;
+  const total = quizState.infinite ? quizState.asked || 1 : quizState.numQ || 1;
+  const width = quizState.infinite ? Math.min(quizState.asked,100) : Math.round((quizState.asked / total) * 100);
+  document.getElementById('progressBar').style.width = width + '%';
+}
+
+function finishQuiz(){
+  clearInterval(quizState.timer);
+  document.getElementById('quizPanel').style.display='none';
+  document.getElementById('endPanel').style.display='block';
+  document.getElementById('finalScore').textContent = `${quizState.score} / ${quizState.asked}`;
+  const correct = quizState.score; const total = quizState.asked || 1; const pct = Math.round((correct/total)*100); const pass = pct >= (quizState.passPercent || 40);
+  document.getElementById('finalDetails').innerHTML = `Answered: <b>${correct}</b> correct of <b>${total}</b>. Score: <b>${pct}%</b>. Pass mark: <b>${quizState.passPercent}%</b>.`;
+  document.getElementById('passBadge').innerHTML = pass ? `<div style="color:var(--success);font-weight:700;margin-top:8px">🎉 Passed</div>` : `<div style="color:var(--danger);font-weight:700;margin-top:8px">⚠ Failed</div>`;
+
+  // save history for non-admin users
+  if(currentUser && !isAdminSession){
+    users[currentUser] = users[currentUser] || { password:'', history:[] };
+    users[currentUser].history = users[currentUser].history || [];
+    users[currentUser].history.push({
+      user: currentUser,
+      date: new Date().toLocaleString(),
+      qualification: document.getElementById('qualification').value,
+      subject: document.getElementById('subject').value,
+      course: document.getElementById('course').value || '-',
+      lang: document.getElementById('language').value,
+      numAsked: quizState.asked,
+      score: `${quizState.score}/${quizState.asked}`,
+      percent: pct,
+      pass: pass,
+      timePerQ: quizState.timePerQ,
+      infinite: quizState.infinite
+    });
+    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+    refreshHistoryPreview();
+  }
+}
+
+function stopInfinite(){ finishQuiz(); }
+function restartToSetup(){ quizState = { pool:[], queue:[], pointer:0, infinite:false, numQ:0, timePerQ:15, timer:null, remaining:0, score:0, asked:0, lastQText:null, passPercent:40 }; document.getElementById('setupPanel').style.display='block'; document.getElementById('quizPanel').style.display='none'; document.getElementById('endPanel').style.display='none'; }
+
+/* ---------- Admin Panel (modal inside same HTML) ---------- */
+function openAdminPanel(){
+  if(!isAdminSession){ showOverlay('Admin only'); return; }
+  const existing = document.getElementById('adminModal'); if(existing){ existing.remove(); return; }
+  const modal = document.createElement('div'); modal.id='adminModal'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.zIndex=95; modal.style.width='92%'; modal.style.maxWidth='920px'; modal.style.background='rgba(15,15,25,0.98)'; modal.style.borderRadius='12px'; modal.style.padding='16px'; modal.style.boxShadow='0 10px 40px rgba(0,0,0,0.6)';
+  modal.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-weight:700">🛠 Admin Panel — Question Editor</div>
+      <div>
+        <button class="btn" id="adminCloseBtn">Close</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr; gap:12px; margin-top:12px">
+      <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px;">
+        <label class="row-label">Qualification</label>
+        <select id="admQual" class="input"><option value="">--Select--</option></select>
+        <label class="row-label">Subject</label>
+        <select id="admSub" class="input"><option value="">--Select--</option></select>
+        <div id="admCourseRow" style="display:none">
+          <label class="row-label">Course</label>
+          <select id="admCourse" class="input"></select>
+        </div>
+        <label class="row-label">Question</label>
+        <textarea id="admQ" class="input" rows="3" placeholder="Question text"></textarea>
+        <label class="row-label">Correct answer</label>
+        <input id="admCorrect" class="input" placeholder="Correct answer">
+        <label class="row-label">Incorrect 1</label><input id="admInc1" class="input" placeholder="Wrong option 1">
+        <label class="row-label">Incorrect 2</label><input id="admInc2" class="input" placeholder="Wrong option 2">
+        <label class="row-label">Incorrect 3</label><input id="admInc3" class="input" placeholder="Wrong option 3">
+        <div class="actions" style="margin-top:10px">
+          <button class="btn primary" id="admAddBtn">Add Question</button>
+          <button class="btn" id="admUpdateBtn" style="display:none">Update</button>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700">Existing Questions</div><div class="small">Select to edit / delete</div></div>
+        <div class="admin-list" id="admList"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // populate qual/subjects
+  const admQual = modal.querySelector('#admQual');
+  const admSub = modal.querySelector('#admSub');
+  const admCourse = modal.querySelector('#admCourse');
+  Object.keys(subjectMap).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; admQual.appendChild(o); });
+  admQual.onchange = ()=>{
+    admSub.innerHTML = '<option value="">--Select--</option>'; modal.querySelector('#admCourseRow').style.display='none';
+    const q = admQual.value; if(!q) return;
+    (subjectMap[q] || []).forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; admSub.appendChild(o); });
+    refreshAdminList();
+  };
+  admSub.onchange = ()=>{
+    const s = admSub.value; modal.querySelector('#admCourseRow').style.display='none'; admCourse.innerHTML='';
+    if(admQual.value === 'Graduate' && courseMap[s]){ modal.querySelector('#admCourseRow').style.display='block'; courseMap[s].forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; admCourse.appendChild(o); }); }
+    refreshAdminList();
+  };
+
+  modal.querySelector('#adminCloseBtn').onclick = ()=> modal.remove();
+
+  // Add question
+  modal.querySelector('#admAddBtn').onclick = ()=>{
+    const qual = admQual.value; const subj = admSub.value; const course = (modal.querySelector('#admCourseRow').style.display==='block') ? admCourse.value : null;
+    const qtxt = modal.querySelector('#admQ').value.trim(); const corr = modal.querySelector('#admCorrect').value.trim();
+    const i1 = modal.querySelector('#admInc1').value.trim(); const i2 = modal.querySelector('#admInc2').value.trim(); const i3 = modal.querySelector('#admInc3').value.trim();
+    if(!qual || !subj || !qtxt || !corr || !i1){ showOverlay('Please fill mandatory fields'); return; }
+    const obj = { q: qtxt, correct: corr, incorrect: [i1, i2||'', i3||''].filter(Boolean) };
+    addQuestionToBank(qual, subj, course, obj);
+    showOverlay('Question added');
+    modal.querySelector('#admQ').value=''; modal.querySelector('#admCorrect').value=''; modal.querySelector('#admInc1').value=''; modal.querySelector('#admInc2').value=''; modal.querySelector('#admInc3').value='';
+    refreshAdminList();
+  };
+
+  // Edit / delete delegate
+  let editingRef = null;
+  modal.querySelector('#admList').addEventListener('click', (e)=>{
+    const target = e.target;
+    if(target.matches('.adm-edit')){
+      const ref = JSON.parse(target.getAttribute('data-ref'));
+      const { qualKey, subjKey, courseKey, idx } = ref;
+      editingRef = ref;
+      // load item into fields
+      admQual.value = qualKey; admQual.onchange();
+      setTimeout(()=>{ admSub.value = subjKey; admSub.onchange(); if(courseKey){ setTimeout(()=>{ admCourse.value = courseKey; },100); } }, 100);
+      const item = courseKey ? qbank[qualKey][subjKey][courseKey][idx] : qbank[qualKey][subjKey][idx];
+      modal.querySelector('#admQ').value = item.q; modal.querySelector('#admCorrect').value = item.correct || ''; modal.querySelector('#admInc1').value = (item.incorrect&&item.incorrect[0])||''; modal.querySelector('#admInc2').value = (item.incorrect&&item.incorrect[1])||''; modal.querySelector('#admInc3').value = (item.incorrect&&item.incorrect[2])||'';
+      modal.querySelector('#admAddBtn').style.display='none'; modal.querySelector('#admUpdateBtn').style.display='inline-block';
+    } else if(target.matches('.adm-del')){
+      const ref = JSON.parse(target.getAttribute('data-ref'));
+      if(!confirm('Delete this question?')) return;
+      const {qualKey, subjKey, courseKey, idx} = ref;
+      if(courseKey){ qbank[qualKey][subjKey][courseKey].splice(idx,1); if(qbank[qualKey][subjKey][courseKey].length===0) delete qbank[qualKey][subjKey][courseKey]; }
+      else { qbank[qualKey][subjKey].splice(idx,1); if(qbank[qualKey][subjKey].length===0) delete qbank[qualKey][subjKey]; }
+      saveQBank(); refreshAdminList(); showOverlay('Deleted');
+    }
+  });
+
+  modal.querySelector('#admUpdateBtn').onclick = ()=>{
+    if(!editingRef){ showOverlay('No item selected'); return; }
+    const qualKey = editingRef.qualKey; const subjKey = editingRef.subjKey; const courseKey = editingRef.courseKey; const idx = editingRef.idx;
+    const qtxt = modal.querySelector('#admQ').value.trim(); const corr = modal.querySelector('#admCorrect').value.trim(); const i1 = modal.querySelector('#admInc1').value.trim(); const i2 = modal.querySelector('#admInc2').value.trim(); const i3 = modal.querySelector('#admInc3').value.trim();
+    if(!qtxt || !corr || !i1){ showOverlay('Please fill mandatory fields'); return; }
+    const obj = { q:qtxt, correct:corr, incorrect: [i1,i2||'',i3||''].filter(Boolean) };
+    if(courseKey){ qbank[qualKey][subjKey][courseKey][idx] = obj; } else { qbank[qualKey][subjKey][idx] = obj; }
+    saveQBank(); showOverlay('Updated'); editingRef = null;
+    modal.querySelector('#admAddBtn').style.display='inline-block'; modal.querySelector('#admUpdateBtn').style.display='none';
+    modal.querySelector('#admQ').value=''; modal.querySelector('#admCorrect').value=''; modal.querySelector('#admInc1').value=''; modal.querySelector('#admInc2').value=''; modal.querySelector('#admInc3').value='';
+    refreshAdminList();
+  };
+
+  refreshAdminList();
+}
+
+/* Refresh admin list in modal */
+function refreshAdminList(){
+  const modal = document.getElementById('adminModal');
+  if(!modal) return;
+  const admQual = modal.querySelector('#admQual').value; const admSub = modal.querySelector('#admSub').value;
+  const list = modal.querySelector('#admList'); list.innerHTML='';
+  if(!admQual || !admSub){ list.innerHTML = '<div class="small">Select qualification & subject to view admin-added questions.</div>'; return; }
+  const bank = qbank || {};
+  if(admQual === 'Graduate'){
+    const courses = courseMap[admSub] || [];
+    courses.forEach(course=>{
+      const arr = ((bank[admQual] && bank[admQual][admSub] && bank[admQual][admSub][course]) || []);
+      if(!arr || arr.length===0) return;
+      const header = document.createElement('div'); header.style.fontWeight='700'; header.style.margin='6px 0'; header.textContent = course; list.appendChild(header);
+      arr.forEach((q,idx)=>{
+        const it = document.createElement('div'); it.className='admin-item';
+        const left = document.createElement('div'); left.style.flex='1'; left.textContent = q.q;
+        const controls = document.createElement('div');
+        const editBtn = document.createElement('button'); editBtn.className='btn adm-edit'; editBtn.textContent='Edit'; editBtn.setAttribute('data-ref', JSON.stringify({qualKey:admQual, subjKey:admSub, courseKey:course, idx}));
+        const delBtn = document.createElement('button'); delBtn.className='btn adm-del'; delBtn.textContent='Delete'; delBtn.setAttribute('data-ref', JSON.stringify({qualKey:admQual, subjKey:admSub, courseKey:course, idx}));
+        controls.appendChild(editBtn); controls.appendChild(delBtn);
+        it.appendChild(left); it.appendChild(controls); list.appendChild(it);
+      });
+    });
+  } else {
+    const arr = ((bank[admQual] && bank[admQual][admSub]) || []);
+    if(!arr || !Array.isArray(arr) || arr.length===0){ list.innerHTML = '<div class="small">No admin-added questions for this selection.</div>'; return; }
+    arr.forEach((q,idx)=>{
+      const it = document.createElement('div'); it.className='admin-item';
+      const left = document.createElement('div'); left.style.flex='1'; left.textContent = q.q;
+      const controls = document.createElement('div');
+      const editBtn = document.createElement('button'); editBtn.className='btn adm-edit'; editBtn.textContent='Edit'; editBtn.setAttribute('data-ref', JSON.stringify({qualKey:admQual, subjKey:admSub, courseKey:null, idx}));
+      const delBtn = document.createElement('button'); delBtn.className='btn adm-del'; delBtn.textContent='Delete'; delBtn.setAttribute('data-ref', JSON.stringify({qualKey:admQual, subjKey:admSub, courseKey:null, idx}));
+      controls.appendChild(editBtn); controls.appendChild(delBtn);
+      it.appendChild(left); it.appendChild(controls); list.appendChild(it);
+    });
+  }
+}
+
+/* ---------- History modal ---------- */
+function openHistory(){
+  const existing = document.getElementById('historyModal'); if(existing){ existing.remove(); return; }
+  const modal = document.createElement('div'); modal.id='historyModal'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.zIndex=90; modal.style.width='92%'; modal.style.maxWidth='820px'; modal.style.background='rgba(0,0,0,0.02)'; modal.style.borderRadius='12px'; modal.style.padding='18px'; modal.style.boxShadow='0 10px 40px rgba(0,0,0,0.6)';
+  modal.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700">📜 Quiz History — ${currentUser || 'Guest'}</div><div><button class="btn" id="histClose">Close</button></div></div><div class="hist-body" style="margin-top:12px"></div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#histClose').onclick = ()=> modal.remove();
+  const body = modal.querySelector('.hist-body');
+  if(!currentUser || !users[currentUser] || !users[currentUser].history || users[currentUser].history.length===0){
+    body.innerHTML = '<div class="small">No history yet. Take some quizzes to see them here.</div>'; return;
+  }
+  const hist = users[currentUser].history.slice().reverse();
+  hist.forEach(h=>{
+    const item = document.createElement('div'); item.style.marginBottom='12px'; item.style.padding='10px'; item.style.borderRadius='8px'; item.style.background='#fff'; item.style.color='#111';
+    item.innerHTML = `<div style="display:flex;justify-content:space-between"><div><b>${h.user}</b> <span style="color:#666">| ${h.date}</span></div><div style="font-weight:700">${h.score}</div></div>
+      <div style="margin-top:6px;color:#333">${h.qualification} • ${h.subject} ${h.course && h.course!=='-' ? ' • ' + h.course : ''}</div>
+      <div style="margin-top:6px;color:#444">Status: <b style="color:${h.pass? '#088A08':'#C0392B'}">${h.pass ? 'Passed' : 'Failed'}</b> • ${h.percent}% • Time/Q: ${h.timePerQ}s</div>`;
+    body.appendChild(item);
+  });
+}
+
+/* Preview in sidebar */
+function refreshHistoryPreview(){
+  const preview = document.getElementById('historyPreview'); preview.innerHTML = '';
+  if(!currentUser || !users[currentUser]){ preview.innerHTML = '<div class="small">Login to see history preview</div>'; return; }
+  const hist = (users[currentUser].history || []).slice().reverse().slice(0,4);
+  if(hist.length === 0){ preview.innerHTML = '<div class="small">No attempts yet</div>'; return; }
+  hist.forEach(h=>{
+    const it = document.createElement('div'); it.className='history-item'; it.style.padding='8px'; it.style.marginBottom='8px';
+    it.innerHTML = `<div style="font-weight:600">${h.subject} ${h.course && h.course!=='-' ? '('+h.course+')':''}</div>
+                    <div class="small">${h.date}</div>
+                    <div style="margin-top:6px"><b>${h.score}</b> ${h.pass ? '<span style="color:var(--success)">Passed</span>' : '<span style="color:var(--danger)">Failed</span>'}</div>`;
+    preview.appendChild(it);
+  });
+}
+
+/* ---------- Init ---------- */
+(function init(){
+  showTab('login');
+  document.getElementById('setupPanel').style.display='none';
+  document.getElementById('quizPanel').style.display='none';
+  document.getElementById('endPanel').style.display='none';
+  // load local data
+  users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '{}');
+  admins = JSON.parse(localStorage.getItem(STORAGE_ADMINS) || '[]'); if(!admins || admins.length===0){ admins=[DEFAULT_ADMIN]; localStorage.setItem(STORAGE_ADMINS, JSON.stringify(admins)); }
+  qbank = JSON.parse(localStorage.getItem(STORAGE_QBANK) || '{}');
+})();
+</script>
+</body>
+</html>
